@@ -6,6 +6,8 @@
 // #define MQTT_VERSION_3_1
 #define MQTT_VERSION_3_1_1
 
+#define MQTT_PACKET_BUFFER_SIZE     128
+
 // Command types
 #define COMMAND_TYPE_RESERVED_0     0x0
 #define COMMAND_TYPE_CONNECT        0x1
@@ -69,8 +71,8 @@ typedef struct {
     char topic[128];
     char msg[128];
     unsigned int packet_ID : 16;
-    unsigned int topic_len : 8;
-    unsigned int msg_len : 8;
+    unsigned int *topic_len;
+    unsigned int *msg_len;
     unsigned int QoS : 2;
 } MQTT_msgTypedef;
 
@@ -92,6 +94,6 @@ int MQTT_handle_pubcomp_packet(const unsigned char *packet, unsigned int len);
 int MQTT_handle_suback_packet(const unsigned char *packet, unsigned int len);
 int MQTT_handle_unsuback_packet(const unsigned char *packet, unsigned int len);
 int MQTT_handle_pingresp_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_public_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg);
+int MQTT_handle_publish_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg);
 
 #endif

@@ -3,8 +3,6 @@
 #include "stdlib.h"
 #include <string.h>
 
-#define BUF_SIZE    128
-
 #define PACKET_FIXED_HEADER_SIZE                2
 #define PACKET_VARIABLE_HEADER_POSITION         2
 #if defined(MQTT_VERSION_3_1)
@@ -72,7 +70,7 @@ int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, unsigned char 
         }
     }
     packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length;
-    if (packet_length > BUF_SIZE) {
+    if (packet_length > MQTT_PACKET_BUFFER_SIZE) {
         MQTT_LOG("Packet too large\n");
         return -1;
     }
@@ -140,7 +138,7 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, unsigned char 
         remaining_length += 2; // Packet ID length
     }
     packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length + PACKET_UTF_STR_LEN(config->payload);
-    if (packet_length > BUF_SIZE) {
+    if (packet_length > MQTT_PACKET_BUFFER_SIZE) {
         MQTT_LOG("Packet too large\n");
         return -1;
     }
@@ -223,7 +221,7 @@ int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, unsigned c
     payload_length = PACKET_UTF_STR_LEN(config->topic) + 1;
     remaining_length = SUBSCRIBE_PACKET_VARIABLE_HAEDER_SIZE + payload_length;
     packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length;
-    if (packet_length > BUF_SIZE) {
+    if (packet_length > MQTT_PACKET_BUFFER_SIZE) {
         MQTT_LOG("Packet too large\n");
         return -1;
     }
@@ -272,7 +270,7 @@ int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, unsign
     payload_length = PACKET_UTF_STR_LEN(config->topic);
     remaining_length = UNSUBSCRIBE_PACKET_VARIABLE_HAEDER_SIZE + payload_length;
     packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length;
-    if (packet_length > BUF_SIZE) {
+    if (packet_length > MQTT_PACKET_BUFFER_SIZE) {
         MQTT_LOG("Packet too large\n");
         return -1;
     }
@@ -331,7 +329,7 @@ int MQTT_create_disconnect_packet(unsigned char *packet_buf)
     return 2;
 }
 
-int MQTT_handle_public_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg)
+int MQTT_handle_publish_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg)
 {
     unsigned char *packet_ptr = packet;
 
@@ -349,9 +347,9 @@ int MQTT_handle_public_packet(const unsigned char *packet, unsigned len, MQTT_ms
     }
 
     // Decode payload
-    msg->topic_len = read_packet_utf_string(msg->topic, packet_ptr);
-    packet_ptr += msg->topic_len;
-    msg->msg_len = read_packet_utf_string(msg->msg, packet_ptr);
+    *(msg->topic_len) = read_packet_utf_string(msg->topic, packet_ptr);
+    packet_ptr += *(msg->topic_len);
+    *(msg->msg_len) = read_packet_utf_string(msg->msg, packet_ptr);
 
     return 0;
 }

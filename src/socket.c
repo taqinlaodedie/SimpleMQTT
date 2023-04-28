@@ -24,7 +24,7 @@ SOCKET socket_new(const char* addr, size_t addr_len, int port)
     sockAdrr.sin_addr.s_addr = inet_addr(addr);
     sockAdrr.sin_port = htons(port);
     err = connect(tcp_socket, (struct sockaddr *)&sockAdrr, sizeof(sockAdrr));
-    if (err < 0) {
+    if (err != 0) {
         MQTT_LOG("Failed to connect to server, err = %d\n", err);
         return -1;
     }
@@ -44,13 +44,13 @@ int socket_send(SOCKET tcp_socket, const char *data, int len)
 
 /* If no error occurs, the number of bytes received should be returned and the buffer pointed to by the data parameter will contain this data received. 
 If the connection has been gracefully closed, the return value is zero. */
-int socket_recv(SOCKET tcp_socket, char *data, int len)
+int socket_recv(SOCKET tcp_socket, char *data, int buf_len)
 {
-    int err;
+    int packet_len;
 #if defined(_WIN32) || defined(_WIN64)
-    err = recv(tcp_socket, data, len, 0);
+    packet_len = recv(tcp_socket, data, buf_len, 0);
 #endif
-    return err;
+    return packet_len;
 }
 
 void socket_delete(SOCKET tcp_socket)
