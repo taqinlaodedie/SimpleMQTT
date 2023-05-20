@@ -27,6 +27,7 @@ int MQTT_client_close(MQTT_clientHandleTypedef *hclient);
 int MQTT_client_publish(MQTT_clientHandleTypedef *hclient, const char *topic, const char *content);
 int MQTT_client_subscribe(MQTT_clientHandleTypedef *hclient, const char *topic);
 int MQTT_client_unsubscribe(MQTT_clientHandleTypedef *hclient, const char *topic);
+void MQTT_client_ping(MQTT_clientHandleTypedef *hclient);
 int MQTT_client_decode_event(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg);
 void MQTT_client_loop(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg);
 

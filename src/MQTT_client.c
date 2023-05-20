@@ -1,6 +1,7 @@
 #include "MQTT_client.h"
 #include "string.h"
 #include "log.h"
+#include "MQTT_osal.h"
 
 static unsigned char packet_buf[MQTT_PACKET_BUFFER_SIZE];
 
@@ -121,16 +122,7 @@ int MQTT_client_subscribe(MQTT_clientHandleTypedef *hclient, const char *topic)
         MQTT_LOG("Failed to send SUBSCRIBE packet\n");
         return -1;
     }
-    packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
-    if (packet_len <= 0) {
-        MQTT_LOG("Socket receive err with %d", packet_len);
-        return -1;
-    }
-    if (MQTT_handle_suback_packet(packet_buf, packet_len) != 0) {
-        MQTT_LOG("Failed to get SUBACK packet\n");
-        return -1;
-    }
-
+    
     return 0;
 }
 
@@ -141,10 +133,8 @@ int MQTT_client_unsubscribe(MQTT_clientHandleTypedef *hclient, const char *topic
         return -1;
     }
 
-    MQTT_subscribeConfigTypedef unsubscribe_config = {
+    MQTT_unsubscribeConfigTypedef unsubscribe_config = {
         .packet_ID = 0x10,
-        .retain = false,
-        .topic_QoS = 0,
         .topic = topic
     };
     int packet_len = MQTT_create_unsubscribe_packet(&unsubscribe_config, packet_buf);
@@ -156,13 +146,24 @@ int MQTT_client_unsubscribe(MQTT_clientHandleTypedef *hclient, const char *topic
         MQTT_LOG("Failed to send UNSUBSCRIBE packet\n");
         return -1;
     }
-    packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
-    if (packet_len <= 0) {
-        MQTT_LOG("Socket receive err with %d", packet_len);
+
+    return 0;
+}
+
+void MQTT_client_ping(MQTT_clientHandleTypedef *hclient)
+{
+    if (hclient->status == DISCONNECTED) {
+        MQTT_LOG("Client not connected\n");
         return -1;
     }
-    if (MQTT_handle_unsuback_packet(packet_buf, packet_len) != 0) {
-        MQTT_LOG("Failed to get UNSUBACK packet\n");
+
+    int packet_len = MQTT_create_pingreq_packet(packet_buf);
+    if (packet_len < 0) {
+        MQTT_LOG("Failed to create PING packet\n");
+        return -1;
+    }
+    if (socket_send(hclient->socket, packet_buf, packet_len != 0)) {
+        MQTT_LOG("Failed to send PING packet\n");
         return -1;
     }
 
@@ -171,20 +172,30 @@ int MQTT_client_unsubscribe(MQTT_clientHandleTypedef *hclient, const char *topic
 
 int MQTT_client_decode_event(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg)
 {
+    int packet_len = 0;
     if (hclient->status == DISCONNECTED) {
         MQTT_LOG("Client not connected\n");
         return -1;
     }
 
-    int packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
-    if (packet_len <= 0) {
+    packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
+    if (packet_len < 0) {
         MQTT_LOG("Socket receive err with %d", packet_len);
         return -1;
     }
 
-    if (MQTT_handle_publish_packet(packet_buf, packet_len, msg) != 0) {
-        MQTT_LOG("Failed to decode message\n");
-        return -1;
+    if (packet_len > 0) { // Message received
+        switch (packet_buf[0] >> 4) {
+        case COMMAND_TYPE_PUBLISH:
+            if (MQTT_handle_publish_packet(packet_buf, packet_len, msg) != 0) {
+                MQTT_LOG("Failed to decode PUBLISH message\n");
+                return -1;
+            }
+            break;
+        default:
+            MQTT_LOG("Received MQTT message, type = %x, size = %d", packet_buf[0] >> 4, packet_len);
+            break;
+        }
     }
 
     return 0;
@@ -192,6 +203,7 @@ int MQTT_client_decode_event(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef 
 
 void MQTT_client_loop(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg)
 {
+    static unsigned long timestamp, old_timestamp;
     if (hclient->status == DISCONNECTED) {
         MQTT_LOG("Client not connected\n");
         return;
@@ -200,6 +212,13 @@ void MQTT_client_loop(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg)
     hclient->status = IN_LOOP;
     while (hclient->status == IN_LOOP) {
         MQTT_client_decode_event(hclient, msg);
-        hclient->callback(hclient, msg);
+        if (hclient->callback)
+            hclient->callback(hclient, msg);
+
+        timestamp = MQTT_timestamp();
+        if (timestamp - old_timestamp >= hclient->keep_alive * 1000) {
+            MQTT_client_ping(hclient);
+            old_timestamp = timestamp;
+        }
     }
 }
