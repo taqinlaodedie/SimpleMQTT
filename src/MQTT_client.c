@@ -9,14 +9,14 @@ static void dump_packet(int len)
 {
     MQTT_printf("Dump MQTT packet, len=%d: ", len);
     for (int i = 0; i < len; i++) {
-        MQTT_printf("%02x ", (unsigned char)packet_buf[i]);
+        MQTT_printf("%02x ", (char)packet_buf[i]);
     }
     MQTT_printf("\n");
 }
 
 int MQTT_client_new(MQTT_clientHandleTypedef *hclient)
 {
-    unsigned char ack;
+    char ack;
     
     if (hclient->status != DISCONNECTED) {
         MQTT_LOG("Already connected\n");
@@ -113,7 +113,7 @@ int MQTT_client_publish(MQTT_clientHandleTypedef *hclient, const char *topic, co
         MQTT_LOG("Failed to creat PUBLISH packet\n");
         return -1;
     }
-    if (socket_send(hclient->socket, packet_buf, packet_len != 0)) {
+    if (socket_send(hclient->socket, packet_buf, packet_len) != 0) {
         MQTT_LOG("Failed to send PUBLISH packet\n");
         return -1;
     }
@@ -142,7 +142,7 @@ int MQTT_client_subscribe(MQTT_clientHandleTypedef *hclient, const char *topic)
         MQTT_LOG("Failed to create SUBSCRIBE packet\n");
         return -1;
     }
-    if (socket_send(hclient->socket, packet_buf, packet_len != 0)) {
+    if (socket_send(hclient->socket, packet_buf, packet_len) != 0) {
         MQTT_LOG("Failed to send SUBSCRIBE packet\n");
         return -1;
     }
@@ -182,7 +182,7 @@ int MQTT_client_unsubscribe(MQTT_clientHandleTypedef *hclient, const char *topic
         MQTT_LOG("Failed to create UNSUBSCRIBE packet\n");
         return -1;
     }
-    if (socket_send(hclient->socket, packet_buf, packet_len != 0)) {
+    if (socket_send(hclient->socket, packet_buf, packet_len) != 0) {
         MQTT_LOG("Failed to send UNSUBSCRIBE packet\n");
         return -1;
     }
@@ -202,7 +202,7 @@ void MQTT_client_ping(MQTT_clientHandleTypedef *hclient)
         MQTT_LOG("Failed to create PING packet\n");
         return;
     }
-    if (socket_send(hclient->socket, packet_buf, packet_len != 0)) {
+    if (socket_send(hclient->socket, packet_buf, packet_len) != 0) {
         MQTT_LOG("Failed to send PING packet\n");
         return;
     }
@@ -218,7 +218,7 @@ int MQTT_client_decode_event(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef 
 
     packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
     if (packet_len < 0) {
-        MQTT_LOG("Socket receive err with %d", packet_len);
+        MQTT_LOG("Socket receive err with %d\n", packet_len);
         return -1;
     }
     if (packet_len == 0) {

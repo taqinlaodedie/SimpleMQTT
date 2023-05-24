@@ -37,7 +37,6 @@ int main()
         return -1;
     }
     printf("Connected..\n");
-    Sleep(2000);
     if (MQTT_client_subscribe(&client, "114514")) {
         printf("MQTT subscribe failed\n");
         return -1;

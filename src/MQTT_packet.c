@@ -240,7 +240,7 @@ int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, char *pack
     payload_ptr = &packet_buf[SUBSCRIBE_PACKET_PAYLOAD_POSITION];
     payload_ptr += write_packet_utf_string(payload_ptr, config->topic);
     payload_ptr[0] = config->topic_QoS;
-
+    
     return packet_length;
 }
 
