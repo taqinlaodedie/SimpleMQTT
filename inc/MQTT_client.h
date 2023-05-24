@@ -4,7 +4,7 @@
 #include "MQTT_packet.h"
 #include "socket.h"
 
-typedef int (*MQTT_client_callback)(MQTT_clientHandleTypedef, MQTT_msgTypedef);
+typedef int (*MQTT_client_callback)(MQTT_msgTypedef *);
 
 typedef enum {
     DISCONNECTED = 0,
@@ -14,7 +14,7 @@ typedef enum {
 
 typedef struct {
     MQTT_clientStatusTypedef status;
-    const unsigned int client_ID : 16;
+    const char *client_ID;
     const unsigned int keep_alive : 16;
     SOCKET socket;
     const char *addr;

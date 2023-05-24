@@ -1,5 +1,5 @@
 #ifndef __MQTT_PACKET_H__
-#define __MQTT_PQCKET_H__
+#define __MQTT_PACKET_H__
 
 #include <stdbool.h>
 
@@ -77,23 +77,23 @@ typedef struct {
 } MQTT_msgTypedef;
 
 // Create packets to send, the packet_buf should be a 128 bytes array
-int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, unsigned char *packet_buf);
-int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, unsigned char *packet_buf);
-int MQTT_create_pubrel_packet(MQTT_pubrelConfigTypedef *config, unsigned char *packet_buf);
-int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, unsigned char *packet_buf);
-int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, unsigned char *packet_buf);
-int MQTT_create_pingreq_packet(unsigned char *packet_buf);
-int MQTT_create_disconnect_packet(unsigned char *packet_buf);
-int MQTT_create_puback_packet(MQTT_pubackConfigTypedef *config, unsigned char *packet_buf);
+int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, char *packet_buf);
+int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, char *packet_buf);
+int MQTT_create_pubrel_packet(MQTT_pubrelConfigTypedef *config, char *packet_buf);
+int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, char *packet_buf);
+int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, char *packet_buf);
+int MQTT_create_pingreq_packet(char *packet_buf);
+int MQTT_create_disconnect_packet(char *packet_buf);
+int MQTT_create_puback_packet(MQTT_pubackConfigTypedef *config, char *packet_buf);
 
 // Handle received packets, returns 0 if OK
-int MQTT_handle_connack_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_puback_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_pubrec_packet(const unsigned char *packet, unsigned int len, unsigned int *packet_ID);
-int MQTT_handle_pubcomp_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_suback_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_unsuback_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_pingresp_packet(const unsigned char *packet, unsigned int len);
-int MQTT_handle_publish_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg);
+int MQTT_handle_connack_packet(const char *packet, unsigned int len);
+int MQTT_handle_puback_packet(const char *packet, unsigned int len);
+int MQTT_handle_pubrec_packet(const char *packet, unsigned int len, unsigned int *packet_ID);
+int MQTT_handle_pubcomp_packet(const char *packet, unsigned int len);
+int MQTT_handle_suback_packet(const char *packet, unsigned int len);
+int MQTT_handle_unsuback_packet(const char *packet, unsigned int len);
+int MQTT_handle_pingresp_packet(const char *packet, unsigned int len);
+int MQTT_handle_publish_packet(const char *packet, unsigned len, MQTT_msgTypedef *msg);
 
 #endif

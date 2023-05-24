@@ -33,29 +33,29 @@
 
 #define PACKET_UTF_STR_LEN(a) (strlen(a) + 2)
 
-static int write_packet_utf_string(unsigned char *buf, const unsigned char *str)
+static int write_packet_utf_string(char *buf, const char *str)
 {
     unsigned int len = strlen(str);
     buf[0] = 0x00;
-    buf[1] = (unsigned char)len;
+    buf[1] = (char)len;
     memcpy(buf + 2, str, len);
     return (len + 2);
 }
 
-static int read_packet_utf_string(unsigned char *buf, const unsigned char *str)
+static int read_packet_utf_string(char *buf, const char *str)
 {
     int len = (buf[0] << 8) | buf[1];
     memcpy(buf, str+2, len);
     return len;
 }
 
-int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, char *packet_buf)
 {
     unsigned int packet_length, remaining_length;
-    unsigned char payload_length = 0;
-    unsigned char connect_flags = 0;
-    unsigned char *variable_header_ptr = packet_buf[PACKET_VARIABLE_HEADER_POSITION];
-    unsigned char *payload_ptr = packet_buf[CONNECT_PACKET_PAYLOAD_POSITION];
+    char payload_length = 0;
+    char connect_flags = 0;
+    char *variable_header_ptr = &packet_buf[PACKET_VARIABLE_HEADER_POSITION];
+    char *payload_ptr = &packet_buf[CONNECT_PACKET_PAYLOAD_POSITION];
 
     // Verify packet length
     remaining_length = CONNECT_PACKET_VARIABLE_HAEDER_SIZE + PACKET_UTF_STR_LEN(config->client_ID);
@@ -82,8 +82,10 @@ int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, unsigned char 
     // Variable header
 #if defined(MQTT_VERSION_3_1)
     variable_header_ptr += write_packet_utf_string(variable_header_ptr, "MQIsdp");
+    variable_header_ptr[0] = 0x03;
 #elif defined(MQTT_VERSION_3_1_1)
     variable_header_ptr += write_packet_utf_string(variable_header_ptr, "MQTT");
+    variable_header_ptr[0] = 0x04;
 #endif
     variable_header_ptr[1] = config->keep_alive >> 8;
     variable_header_ptr[2] = config->keep_alive & 0xFF;
@@ -108,13 +110,13 @@ int MQTT_create_connect_packet(MQTT_connectConfigTypedef *config, unsigned char 
         connect_flags |= CONNECT_FLAG_WILL_REMAIN;
     }
     if (config->clean_session == true) {
-        connect_flags != CONNECT_FLAG_CLEAN_SESSION;
+        connect_flags |= CONNECT_FLAG_CLEAN_SESSION;
     }
 
     return packet_length;
 }
 
-int MQTT_handle_connack_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_connack_packet(const char *packet, unsigned int len)
 {
     if (len != 4) { // The packet size should be 4 bytes
         MQTT_LOG("Bad packet length %u", len);
@@ -126,11 +128,11 @@ int MQTT_handle_connack_packet(const unsigned char *packet, unsigned int len)
     return (unsigned int)(packet[3]);
 }
 
-int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, char *packet_buf)
 {
     unsigned int packet_length = 0;
     unsigned int remaining_length = 0;
-    unsigned char *ptr;
+    char *ptr;
 
     // Check packet length
     remaining_length = PACKET_UTF_STR_LEN(config->topic);
@@ -147,7 +149,7 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, unsigned char 
     packet_buf[0] = (COMMAND_TYPE_PUBLISH << 4) | (config->DUP_flag << 3) | (config->QoS_level << 1) | (config->retian);
 
     // Variable header
-    ptr = packet_buf[PACKET_VARIABLE_HEADER_POSITION];
+    ptr = &packet_buf[PACKET_VARIABLE_HEADER_POSITION];
     ptr += write_packet_utf_string(ptr, config->topic);
     if (config->QoS_level > 0) {
         ptr[0] = config->packet_ID >> 8;
@@ -161,7 +163,7 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, unsigned char 
     return packet_length;
 }
 
-int MQTT_handle_puback_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_puback_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
@@ -174,7 +176,7 @@ int MQTT_handle_puback_packet(const unsigned char *packet, unsigned int len)
     return 0;
 }
 
-int MQTT_handle_pubrec_packet(const unsigned char *packet, unsigned int len, unsigned int *packet_ID)
+int MQTT_handle_pubrec_packet(const char *packet, unsigned int len, unsigned int *packet_ID)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
@@ -188,7 +190,7 @@ int MQTT_handle_pubrec_packet(const unsigned char *packet, unsigned int len, uns
     return 0;
 }
 
-int MQTT_create_pubrel_packet(MQTT_pubrelConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_pubrel_packet(MQTT_pubrelConfigTypedef *config, char *packet_buf)
 {
     packet_buf[0] = COMMAND_TYPE_PUBREL | 0x02;
     packet_buf[1] = 0x02;
@@ -197,7 +199,7 @@ int MQTT_create_pubrel_packet(MQTT_pubrelConfigTypedef *config, unsigned char *p
     return 4;
 }
 
-int MQTT_handle_pubcomp_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_pubcomp_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
@@ -210,12 +212,12 @@ int MQTT_handle_pubcomp_packet(const unsigned char *packet, unsigned int len)
     return 0;
 }
 
-int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, char *packet_buf)
 {
     unsigned int packet_length;
     unsigned int remaining_length;
     unsigned int payload_length;
-    unsigned char *payload_ptr;
+    char *payload_ptr;
 
     // Check packet length
     payload_length = PACKET_UTF_STR_LEN(config->topic) + 1;
@@ -227,44 +229,41 @@ int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, unsigned c
     }
 
     // Fixed header
-    packet_buf[0] = (COMMAND_TYPE_SUCSCRIBE << 4) | 0x02;
-    packet_buf[1] = remaining_length | 0xFF;
+    packet_buf[0] = (char)(COMMAND_TYPE_SUCSCRIBE << 4) | (char)0x02;
+    packet_buf[1] = remaining_length & 0xFF;
 
     // Variable header
     packet_buf[2] = config->packet_ID >> 8;
-    packet_buf[3] = config->packet_ID | 0xFF;
+    packet_buf[3] = config->packet_ID & 0xFF;
 
     // payload
-    payload_ptr = packet_buf[SUBSCRIBE_PACKET_PAYLOAD_POSITION];
+    payload_ptr = &packet_buf[SUBSCRIBE_PACKET_PAYLOAD_POSITION];
     payload_ptr += write_packet_utf_string(payload_ptr, config->topic);
     payload_ptr[0] = config->topic_QoS;
 
     return packet_length;
 }
 
-int MQTT_handle_suback_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_suback_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
         return -1;
     }
-    if (packet[0] != (COMMAND_TYPE_SUBACK << 4)) {
+    if (packet[0] != (const char)(COMMAND_TYPE_SUBACK << 4)) {
         MQTT_LOG("Bad command type\n");
         return -1;
     }
-    if (packet[4] & 0x80) {
-        MQTT_LOG("Suback failure\n");
-        return -1;
-    }
-    return 0;
+    
+    return packet[4];
 }
 
-int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, char *packet_buf)
 {
     unsigned int packet_length;
     unsigned int remaining_length;
     unsigned int payload_length;
-    unsigned char *payload_ptr = packet_buf[UNSUBSCRIBE_PACKET_PAYLOAD_POSITION];
+    char *payload_ptr = &packet_buf[UNSUBSCRIBE_PACKET_PAYLOAD_POSITION];
     
     // Check packet length
     payload_length = PACKET_UTF_STR_LEN(config->topic);
@@ -276,12 +275,12 @@ int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, unsign
     }
 
     // Fixed header
-    packet_buf[0] = COMMAND_TYPE_UNSUBSCRIBE << 4 | 0x02;
+    packet_buf[0] = (char)(COMMAND_TYPE_UNSUBSCRIBE << 4 | 0x02);
     packet_buf[1] = remaining_length;
 
     // Variable header
     packet_buf[2] = config->packet_ID >> 8;
-    packet_buf[3] = config->packet_ID | 0xFF;
+    packet_buf[3] = config->packet_ID & 0xFF;
 
     // Payload
     write_packet_utf_string(payload_ptr, config->topic);
@@ -289,49 +288,49 @@ int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, unsign
     return packet_length;
 }
 
-int MQTT_handle_unsuback_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_unsuback_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
         return -1;
     }
-    if (packet[0] != (COMMAND_TYPE_UNSUBACK << 4)) {
+    if (packet[0] != (const char)(COMMAND_TYPE_UNSUBACK << 4)) {
         MQTT_LOG("Bad command type\n");
         return -1;
     }
     return 0;
 }
 
-int MQTT_create_pingreq_packet(unsigned char *packet_buf)
+int MQTT_create_pingreq_packet(char *packet_buf)
 {
-    packet_buf[0] = COMMAND_TYPE_PINGREQ << 4;
+    packet_buf[0] = (char)(COMMAND_TYPE_PINGREQ << 4);
     packet_buf[1] = 0x00;
     return 2;
 }
 
-int MQTT_handle_pingresp_packet(const unsigned char *packet, unsigned int len)
+int MQTT_handle_pingresp_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
         MQTT_LOG("Bad packet length\n");
         return -1;
     }
-    if (packet[0] != (COMMAND_TYPE_PINGRESP << 4)) {
+    if (packet[0] != (const char)(COMMAND_TYPE_PINGRESP << 4)) {
         MQTT_LOG("Bad command type\n");
         return -1;
     }
     return 0;
 }
 
-int MQTT_create_disconnect_packet(unsigned char *packet_buf)
+int MQTT_create_disconnect_packet(char *packet_buf)
 {
-    packet_buf[0] = COMMAND_TYPE_DISCONNECT << 4;
+    packet_buf[0] = (char)(COMMAND_TYPE_DISCONNECT << 4);
     packet_buf[1] = 0x00;
     return 2;
 }
 
-int MQTT_handle_publish_packet(const unsigned char *packet, unsigned len, MQTT_msgTypedef *msg)
+int MQTT_handle_publish_packet(const char *packet, unsigned len, MQTT_msgTypedef *msg)
 {
-    unsigned char *packet_ptr = packet;
+    char *packet_ptr = (char *)packet;
 
     // Verify header
     if ((packet_ptr[0] | 0xF0) >> 4 != COMMAND_TYPE_PUBLISH) {
@@ -354,11 +353,11 @@ int MQTT_handle_publish_packet(const unsigned char *packet, unsigned len, MQTT_m
     return 0;
 }
 
-int MQTT_create_puback_packet(MQTT_pubackConfigTypedef *config, unsigned char *packet_buf)
+int MQTT_create_puback_packet(MQTT_pubackConfigTypedef *config, char *packet_buf)
 {
     packet_buf[0] = COMMAND_TYPE_PUBACK << 4;
     packet_buf[1] = 0x20;
     packet_buf[2] = config->packet_ID >> 8;
-    packet_buf[3] = config->packet_ID | 0xFF;
+    packet_buf[3] = config->packet_ID & 0xFF;
     return 4;
 }

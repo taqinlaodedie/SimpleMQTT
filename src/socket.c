@@ -24,9 +24,18 @@ SOCKET socket_new(const char* addr, size_t addr_len, int port)
         WSACleanup();
         return -1;
     }
-    tcp_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (tcp_socket == INVALID_SOCKET) {
         MQTT_LOG("Failed to create socket\n");
+        return -1;
+    }
+
+    sockAdrr.sin_family = AF_INET;
+    sockAdrr.sin_addr.s_addr = inet_addr(addr);
+    sockAdrr.sin_port = htons(port);
+    err = connect(tcp_socket, (struct sockaddr *)&sockAdrr, sizeof(sockAdrr));
+    if (err == SOCKET_ERROR) {
+        MQTT_LOG("Failed to connect to server, err = %d\n", err);
         return -1;
     }
     //-------------------------
@@ -40,20 +49,13 @@ SOCKET socket_new(const char* addr, size_t addr_len, int port)
         MQTT_LOG("ioctlsocket failed with error: %ld\n", err);
         return -1;
     }
-    sockAdrr.sin_family = AF_INET;
-    sockAdrr.sin_addr.s_addr = inet_addr(addr);
-    sockAdrr.sin_port = htons(port);
+    
     while (1) {
-        err = connect(tcp_socket, (struct sockaddr *)&sockAdrr, sizeof(sockAdrr));
         iErrorNo = SOCKET_ERROR;
         iLen = sizeof(int);
-        if (err == SOCKET_ERROR && getsockopt(tcp_socket, SOL_SOCKET, SO_ERROR, (char *)&iErrorNo, &iLen) != 0) {
-            MQTT_LOG("Failed to connect to server, err = %d\n", err);
-            return -1;
-        }
         FD_ZERO(&fs);
         FD_SET(tcp_socket, &fs);
-        err = select(1, NULL, &fs, NULL, &tv);
+        err = select(1, NULL, &fs, NULL, &tv); // Check if the connection is ready
         if (err > 0) {
             MQTT_LOG("Successfully connected to server\n");
             break;
@@ -83,6 +85,10 @@ int socket_send(SOCKET tcp_socket, const char *data, int len)
             break;
         }
     }
+    if (err == SOCKET_ERROR) {
+        return -1;
+    }
+    err = 0;
 #endif
     return err;
 }
