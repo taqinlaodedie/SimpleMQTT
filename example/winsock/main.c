@@ -5,12 +5,12 @@
 int MQTT_callback(MQTT_msgTypedef *msg)
 {
     if (msg->topic_len > 0) {
-        printf("Message received, topic: ");
-        for (int i = 0; i < *msg->topic_len; i++) {
+        printf("Message received with length %d bytes, topic: ", msg->topic_len);
+        for (int i = 0; i < msg->topic_len; i++) {
             printf("%c", msg->topic[i]);
         }
         printf("; message: ");
-        for (int i = 0; i < *msg->msg_len; i++) {
+        for (int i = 0; i < msg->msg_len; i++) {
             printf("%c", msg->msg[i]);
         }
         printf(".\n");

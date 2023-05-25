@@ -88,6 +88,10 @@ int socket_send(SOCKET tcp_socket, const char *data, int len)
     if (err == SOCKET_ERROR) {
         return -1;
     }
+    if (err != len) {
+        MQTT_LOG("%d bytes sent, expected %d\n");
+        return -1;
+    }
     err = 0;
 #endif
     return err;
@@ -108,6 +112,11 @@ int socket_recv(SOCKET tcp_socket, char *data, int buf_len)
     FD_SET(tcp_socket, &fs);
     if (select(1, &fs, NULL, NULL, &tv) > 0)
         packet_len = recv(tcp_socket, data, buf_len, 0);
+    if (packet_len == SOCKET_ERROR) {
+        MQTT_LOG("recv error: %d\n", WSAGetLastError());
+        closesocket(tcp_socket);
+        WSACleanup();
+    }
 #endif
     return packet_len;
 }

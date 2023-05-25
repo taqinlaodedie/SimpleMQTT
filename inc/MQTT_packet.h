@@ -71,8 +71,8 @@ typedef struct {
     char topic[128];
     char msg[128];
     unsigned int packet_ID : 16;
-    unsigned int *topic_len;
-    unsigned int *msg_len;
+    unsigned int topic_len;
+    unsigned int msg_len;
     unsigned int QoS : 2;
 } MQTT_msgTypedef;
 
@@ -85,6 +85,7 @@ int MQTT_create_unsubscribe_packet(MQTT_unsubscribeConfigTypedef *config, char *
 int MQTT_create_pingreq_packet(char *packet_buf);
 int MQTT_create_disconnect_packet(char *packet_buf);
 int MQTT_create_puback_packet(MQTT_pubackConfigTypedef *config, char *packet_buf);
+int MQTT_create_pingresp_packet(char *packet_buf);
 
 // Handle received packets, returns 0 if OK
 int MQTT_handle_connack_packet(const char *packet, unsigned int len);

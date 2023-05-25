@@ -9,7 +9,7 @@ static void dump_packet(int len)
 {
     MQTT_printf("Dump MQTT packet, len=%d: ", len);
     for (int i = 0; i < len; i++) {
-        MQTT_printf("%02x ", (char)packet_buf[i]);
+        MQTT_printf("%02x ", (unsigned char)packet_buf[i]);
     }
     MQTT_printf("\n");
 }
@@ -60,7 +60,7 @@ int MQTT_client_new(MQTT_clientHandleTypedef *hclient)
     while (packet_len == 0);
     
     if (packet_len < 0) {
-        MQTT_LOG("Socket receive err with %d", packet_len);
+        MQTT_LOG("Socket receive err with %d\n", packet_len);
         return -1;
     }
     ack = MQTT_handle_connack_packet(packet_buf, packet_len);
@@ -95,6 +95,8 @@ int MQTT_client_close(MQTT_clientHandleTypedef *hclient)
 
 int MQTT_client_publish(MQTT_clientHandleTypedef *hclient, const char *topic, const char *content)
 {
+    int ack;
+
     if (hclient->status == DISCONNECTED) {
         MQTT_LOG("Client not connected\n");
         return -1;
@@ -102,9 +104,9 @@ int MQTT_client_publish(MQTT_clientHandleTypedef *hclient, const char *topic, co
     
     MQTT_publishConfigTypedef publish_config = {
         .DUP_flag = false,
-        .QoS_level = 1,
+        .QoS_level = 0,
         .retian = false,
-        .packet_ID = 11,
+        .packet_ID = 0x11,
         .topic = topic,
         .payload = content
     };
@@ -157,7 +159,7 @@ int MQTT_client_subscribe(MQTT_clientHandleTypedef *hclient, const char *topic)
         return -1;
     }
     ack = MQTT_handle_suback_packet(packet_buf, packet_len);
-    if (ack == 0x80) {
+    if (ack == 0x80 || ack == -1) {
         MQTT_LOG("Failed to SUBSCRIBE \n");
         dump_packet(packet_len);
         return -1;
@@ -211,31 +213,41 @@ void MQTT_client_ping(MQTT_clientHandleTypedef *hclient)
 int MQTT_client_decode_event(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg)
 {
     int packet_len = 0;
+    unsigned char type;
+
     if (hclient->status == DISCONNECTED) {
         MQTT_LOG("Client not connected\n");
         return -1;
     }
-
+    
     packet_len = socket_recv(hclient->socket, packet_buf, MQTT_PACKET_BUFFER_SIZE);
     if (packet_len < 0) {
         MQTT_LOG("Socket receive err with %d\n", packet_len);
         return -1;
     }
     if (packet_len == 0) {
-        *msg->topic_len = 0;
-        *msg->msg_len = 0;
+        msg->topic_len = 0;
+        msg->msg_len = 0;
         return 0;
     }
     if (packet_len > 0) { // Message received
-        switch (packet_buf[0] >> 4) {
+        type = (packet_buf[0] >> 4) & 0x0F;
+        switch (type) {
         case COMMAND_TYPE_PUBLISH:
             if (MQTT_handle_publish_packet(packet_buf, packet_len, msg) != 0) {
                 MQTT_LOG("Failed to decode PUBLISH message\n");
                 return -1;
             }
             break;
+        case COMMAND_TYPE_PINGREQ:
+            MQTT_create_pingreq_packet(packet_buf);
+            socket_send(hclient->port, packet_buf, 2);
+            break;
+        case COMMAND_TYPE_PINGRESP:
+            MQTT_LOG("PING completed\n");
+            break;
         default:
-            MQTT_LOG("Received MQTT message, type = %x, size = %d\n", packet_buf[0] >> 4, packet_len);
+            MQTT_LOG("Received MQTT message, type = %x, size = %d\n", type, packet_len);
             break;
         }
     }
@@ -258,9 +270,11 @@ void MQTT_client_loop(MQTT_clientHandleTypedef *hclient, MQTT_msgTypedef *msg)
             hclient->callback(msg);
 
         timestamp = MQTT_timestamp();
-        if (timestamp - old_timestamp >= hclient->keep_alive * 1000) {
+        if ((timestamp - old_timestamp)/1000 >= hclient->keep_alive) {
             MQTT_client_ping(hclient);
             old_timestamp = timestamp;
         }
+        msg->topic_len = 0;
+        msg->msg_len = 0;
     }
 }

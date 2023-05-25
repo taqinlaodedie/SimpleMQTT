@@ -11,6 +11,7 @@ unsigned long long MQTT_timestamp()
     FILETIME file_time;
     GetSystemTimeAsFileTime(&file_time);
     timestamp = ((unsigned long long )file_time.dwHighDateTime << 32) + (unsigned long long)file_time.dwLowDateTime;
+    timestamp /= 10000;
 #endif
     return timestamp;
 }

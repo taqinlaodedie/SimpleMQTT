@@ -3,8 +3,8 @@ CFLAGS = -lwsock32 -std=C99 -Wall
  
 TARGET  = MQTT_main
 OBJ_DIR = ./
-SRC_DIR = ../src
-INC_DIR = ../inc
+SRC_DIR = ../../src
+INC_DIR = ../../inc
  
 SRC = $(wildcard $(SRC_DIR)/*.c ./*.c)
 DIR = $(notdir $(SRC))

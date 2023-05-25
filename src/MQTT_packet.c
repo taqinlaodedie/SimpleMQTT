@@ -44,7 +44,11 @@ static int write_packet_utf_string(char *buf, const char *str)
 
 static int read_packet_utf_string(char *buf, const char *str)
 {
-    int len = (buf[0] << 8) | buf[1];
+    int len = ((unsigned char)str[0] << 8) | (unsigned char)str[1];
+    if (len > MQTT_PACKET_BUFFER_SIZE) {
+        MQTT_LOG("Message error!, length = %d\n", len);
+        return 0;
+    }
     memcpy(buf, str+2, len);
     return len;
 }
@@ -139,7 +143,8 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, char *packet_b
     if (config->QoS_level > 0) {
         remaining_length += 2; // Packet ID length
     }
-    packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length + PACKET_UTF_STR_LEN(config->payload);
+    remaining_length += PACKET_UTF_STR_LEN(config->payload);
+    packet_length = PACKET_FIXED_HEADER_SIZE + remaining_length;
     if (packet_length > MQTT_PACKET_BUFFER_SIZE) {
         MQTT_LOG("Packet too large\n");
         return -1;
@@ -147,6 +152,7 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, char *packet_b
 
     // Fixed header
     packet_buf[0] = (COMMAND_TYPE_PUBLISH << 4) | (config->DUP_flag << 3) | (config->QoS_level << 1) | (config->retian);
+    packet_buf[1] = (char)remaining_length;
 
     // Variable header
     ptr = &packet_buf[PACKET_VARIABLE_HEADER_POSITION];
@@ -158,7 +164,7 @@ int MQTT_create_publish_packet(MQTT_publishConfigTypedef *config, char *packet_b
     }
 
     // Payload
-    write_packet_utf_string(ptr, config->topic);
+    write_packet_utf_string(ptr, config->payload);
 
     return packet_length;
 }
@@ -246,7 +252,7 @@ int MQTT_create_subscribe_packet(MQTT_subscribeConfigTypedef *config, char *pack
 
 int MQTT_handle_suback_packet(const char *packet, unsigned int len)
 {
-    if (len != 4) {
+    if (len != 5) {
         MQTT_LOG("Bad packet length\n");
         return -1;
     }
@@ -308,6 +314,13 @@ int MQTT_create_pingreq_packet(char *packet_buf)
     return 2;
 }
 
+int MQTT_create_pingresp_packet(char *packet_buf)
+{
+    packet_buf[0] = (char)(COMMAND_TYPE_PINGRESP << 4);
+    packet_buf[1] = 0x00;
+    return 2;
+}
+
 int MQTT_handle_pingresp_packet(const char *packet, unsigned int len)
 {
     if (len != 4) {
@@ -333,22 +346,22 @@ int MQTT_handle_publish_packet(const char *packet, unsigned len, MQTT_msgTypedef
     char *packet_ptr = (char *)packet;
 
     // Verify header
-    if ((packet_ptr[0] | 0xF0) >> 4 != COMMAND_TYPE_PUBLISH) {
+    if (packet_ptr[0] >> 4 != COMMAND_TYPE_PUBLISH) {
         MQTT_LOG("Bad command type\n");
         return -1;
     }
 
-    msg->QoS = (packet_ptr[0] | 0x06) >> 1;
+    msg->QoS = (packet_ptr[0] & 0x06) >> 1;
     packet_ptr += 2;
     if (msg->QoS > 0) {
         msg->packet_ID = (packet_ptr[0] << 8) | packet_ptr[1];
         packet_ptr += 2;
     }
-
+    
     // Decode payload
-    *(msg->topic_len) = read_packet_utf_string(msg->topic, packet_ptr);
-    packet_ptr += *(msg->topic_len);
-    *(msg->msg_len) = read_packet_utf_string(msg->msg, packet_ptr);
+    msg->topic_len = read_packet_utf_string(msg->topic, packet_ptr);
+    packet_ptr += msg->topic_len + 2;
+    msg->msg_len = read_packet_utf_string(msg->msg, packet_ptr);
 
     return 0;
 }
